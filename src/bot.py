@@ -23,9 +23,7 @@ class User:
     exp : int = 0
     lvl : int = 0
     def __lt__(self, other):
-        self_xp = helpers.exp.exp_total(self.lvl, self.exp)
-        other_xp = helpers.exp.exp_total(other.lvl, other.exp)
-        return self_xp < other_xp
+        return (self.lvl, self.exp) < (other.lvl, other.exp)
 
 @dataclass
 class Settings:
