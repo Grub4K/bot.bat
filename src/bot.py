@@ -5,15 +5,19 @@ from pathlib import Path
 from random import randint
 from collections import namedtuple
 
+from helpers import (
+    exp,
+    access_control,
+    templates
+)
 import functions
-import templates
 
 
 
 SETTINGS_FILE = Path('settings.ini')
 
 # TODO implement lastsend
-User = namedtuple('User', 'id exp')
+User = namedtuple('User', 'id exp lvl')
 
 class Settings:
     ...
@@ -75,17 +79,14 @@ class Bot(discord.Client):
         # Get leaderboard message
         self.leaderboard_message = await self.get_channel(
             self.settings.leaderboard_id).fetch_message(0)
-        print(leaderboard_message.id)
+        logging.info('leaderboard id: {0}'.format(leaderboard_message.id))
         # Signal ready
         await client.change_presence(status=discord.Status.online,
             activity=discord.Game(self.settings.prefix + "help"))
-        print('Bot is ready.')
+        logging.info('Bot is ready.')
     async def on_raw_reaction_add(self, payload):
         ...
     async def on_message(self, message):
-        # Process base commands
-        # TODO verify if this is needed
-        ...
         # Skip if message from ignored channel
         if message.channel.id in self.ignored_channels:
             return
@@ -95,38 +96,57 @@ class Bot(discord.Client):
         # Check if its a command
         if message.content.startswith(self.settings.prefix):
             # Split message content into components
-            command, _, arguments = message.content.partition(' ')
+            msg = message.content.lstrip(self.settings.prefix)
+            command, _, arguments = msg.partition(' ')
             try:
-                # Try to execute corresponding function
+                # Try to fetch corresponding function
                 function = functions.functions[command]
-                await function(self, message, arguments)
             except:
                 # Log unknown command
-                print('Unknown command: "{0}"'.format(command))
-                # TODO add handler that prints unknown command message
-                ...
+                logging.warning('Unknown command: "{0}"'.format(command))
+            else:
+                # Try to execute corresponding function
+                try:
+                    logging.info('Executing command {0}'.format(command))
+                    await function(self, message, arguments)
+                except Exception as exception:
+                    logging.exception('Exception while executing command:',
+                        exception)
         else:
-            # Raise exp of sender by random value between 1 and 10
-            exp_value = randint(1, 10)
+            await self.add_exp(message)
+    async def add_exp(self, message, lower=10, upper=25):
+        """\
+            Adds exp to the user that send message
+        """
+        disp_len = self.settings.display_length
+        # Create new user if not already in users dictionary
+        if not user_id in self.users:
+            user = User(user_id)
+            self.users[user_id] = user
+        else:
+            user = self.users[user_id]
+        # Check amount of current exp and exp needed
+        exp_amount = randint(lower, upper)
+        user.exp += exp_amount
+        exp_needed = helpers.exp.exp_next_lvl(user.lvl)
+        if user.exp >= exp_needed:
+            # User leveled up, increase level and send message
+            user.lvl += 1
+            user.exp -= exp_needed:
+            # TODO send message
             ...
-            # Check for level up:
-            if ...:
-                # Notify of level up
-                ...
-            # update leaderboard if a change occured
-            sorted_leaderboard = sorted(self.leaderboard, lambda x: x.exp)
-            disp_len = self.settings.display_length
-            if sorted_leaderboard == self.leaderboard:
-                # Update indexing
-                ...
-                # If visible leaderboard changed update that
-                if sorted_leaderboard[:disp_len] == self.leaderboard[:disp_len]:
-                    self.update_leaderboard = True
-            self.leaderboard = sorted_leaderboard
-
+        # get new order of users (sort by total exp)
+        sorted_users = sorted(self.users.values(), reverse=True)
+        # Slice sequence to leaderboard places
+        new_leaderboard = [*itertools.islice(sorted_users, disp_len)]
+        # Check if leaderboard changed
+        if self.leaderboard != new_leaderboard:
+            # Set update leaderboard flag
+            self.update_leaderboard = True
+            self.leaderboard = new_leaderboard
     # ATTENTION: This is utter trash that needs to be fixed.
     # TODO fix this and await it somewhere lol
-    async def update_leaderboard_loop(self):
+    async def update_leaderboard(self):
         while True:
             # check if should update
             if self.update_leaderboard:
@@ -180,4 +200,5 @@ class Bot(discord.Client):
 
 if __name__ == '__main__':
     bot = Bot(SETTINGS_FILE)
+    # TODO implement custom loop to accept timer function
     bot.run()
