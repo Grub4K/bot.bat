@@ -1,0 +1,2 @@
+# bot.bat
+ Leaderboard bot
