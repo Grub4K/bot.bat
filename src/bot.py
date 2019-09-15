@@ -14,68 +14,82 @@ import functions
 
 
 
-SETTINGS_FILE = Path('settings.ini')
+SETTINGS_FILE = Path('settings.json')
 
-# TODO implement lastsend
-User = namedtuple('User', 'id exp lvl')
+# TODO: implement lastsend
+@dataclass
+class User:
+    id : str
+    exp : int = 0
+    lvl : int = 0
+    def __lt__(self, other):
+        self_xp = helpers.exp.exp_total(self.lvl, self.exp)
+        other_xp = helpers.exp.exp_total(other.lvl, other.exp)
+        return self_xp < other_xp
 
+@dataclass
 class Settings:
+    exp_bar_size : int = 20
+    prefix : str = '.'
+    submissions_file : str = 'submissions.txt'
+    settings_file : str = 'leaderboard.json'
+    ignored_channels : list = []
+    react_emoji : str = '\N{THUMBS UP SIGN}'
+    edit_delay : int = 5
     ...
-    exp_bar_size = 20
-    prefix = '.'
-    submissions_file = 'submissions'
-    leaderboard_file = 'leaderboard'
-    react_emoji = '\N{THUMBS UP SIGN}'
-    lvl_up_msg = 'Congratz! <@{0.autior.id}> is now at level {1:d}!'
-    edit_delay = 5
 
+# TODO: Change leaderboard file ot users file
 class Bot(discord.Client):
     def __init__(self, settings_path, *args, **kwargs):
-        # Load settings file
-        self.settings = Settings()
+        # Load settings file json
         try:
             with settings_path.open() as s_file:
-                for line in s_file:
-                    key, _, value = line.partition('=')
-                    setattr(self.settings, key, value)
-        except IOError:
-            raise ValueError('Could not parse settings file')
-        # prepare leaderboard
-        # TODO implement indexing
-        self.leaderboard = []
-        leaderboard_file = Path(self.settings.leaderboard_file)
+                json_data = json.load(s_file)
+        except IOError as e:
+            logging.exception('Error opening settings file.', e)
+            raise SystemExit
+        except json.JSONDecodeError as e:
+            logging.exception('Error parsing settings json.', e)
+            raise SystemExit
+        # Construct settings
         try:
-            with leaderboard_file.open() as lb_file:
-                for line in lb_file:
-                    # Ignore comments
-                    if line.lstrip().startswith('#'):
-                        continue
-                    try:
-                        # Append user to leaderboard
-                        user_id, _, user_exp = s.partition("=")
-                        user = User(user_id, user_exp)
-                        self.leaderboard.append(user)
-                    except ValueError:
-                        raise Error('Unexpected leaderboardfile structure.')
+            self.settings = Settings(**json_data)
+        except TypeError as e:
+            logging.exception('Unexpected settings file structure.', e)
+            raise SystemExit
+        # prepare leaderboard
+        self.users = {}
+        self.leaderboard_file = Path(self.settings.users_file)
+        try:
+            with self.leaderboard_file.open() as lb_file:
+                json_data = json.load(lb_file)
         except IOError:
             leaderboard_file.touch()
-        # Set values, raise speciic error on fail
+        except json.JSONDecodeError as e:
+            logging.exception('Error parsing users json.', e)
+            raise SystemExit
         try:
-            self.owner = self.settings.owner
-            self.update_channel = self.settings.update_channel
-        except:
-            raise ...
+            self.leaderboard = [User(**user_dict) for user_dict in json_data]
+        # TODO: Specify exception
+        except TypeError as e:
+            logging.exception('Unexpected user file structure.', e)
+            raise SystemExit
         # Enable first time leaderboard update
         self.update_leaderboard = True
-        # populat some other properties
-        self.ignored_channels = []
-        ...
     def is_owner(author):
         return author.id == self.settings.owner
     def run(self):
         self.run(self.settings.token)
+    def save_users(self):
+        """\
+            Saves the current user state to the users file
+        """
+        def convert_user(user):
+            return user.__dict__
+        user_list = [*self.users.values()]
+        with self.users_file.open('w') as users_file:
+            json.dump(users_file, user_list, default=convert_user)
     async def on_ready(self):
-        # TODO maybe move some of the stuff from __init__ to here
         # Get leaderboard message
         self.leaderboard_message = await self.get_channel(
             self.settings.leaderboard_id).fetch_message(0)
@@ -121,7 +135,8 @@ class Bot(discord.Client):
         disp_len = self.settings.display_length
         # Create new user if not already in users dictionary
         if not user_id in self.users:
-            user = User(user_id)
+            logging.info('Adding id "{0}" to users'.format(user_id))
+            user = User(id=user_id)
             self.users[user_id] = user
         else:
             user = self.users[user_id]
@@ -133,6 +148,7 @@ class Bot(discord.Client):
             # User leveled up, increase level and send message
             user.lvl += 1
             user.exp -= exp_needed:
+            logging.info('User "{0}" reached level {1}.'.format(user.id, user.lvl))
             # TODO send message
             ...
         # get new order of users (sort by total exp)
@@ -144,6 +160,7 @@ class Bot(discord.Client):
             # Set update leaderboard flag
             self.update_leaderboard = True
             self.leaderboard = new_leaderboard
+        self.save_users()
     # ATTENTION: This is utter trash that needs to be fixed.
     # TODO fix this and await it somewhere lol
     async def update_leaderboard(self):
