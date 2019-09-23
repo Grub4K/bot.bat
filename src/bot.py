@@ -16,7 +16,6 @@ import functions
 
 SETTINGS_FILE = Path('settings.json')
 
-# TODO: implement next_send
 @dataclass
 class User:
     """\
@@ -25,7 +24,7 @@ class User:
     id : str
     exp : int = 0
     lvl : int = 0
-    last_send_time : float = time.time()
+    next_send_time : float = time.time()
     def __lt__(self, other):
         return (self.lvl, self.exp) < (other.lvl, other.exp)
 
@@ -125,6 +124,7 @@ class Bot(discord.Client):
             activity=discord.Game(self.settings.prefix + "help"))
         logging.info('Bot is ready.')
     async def on_raw_reaction_add(self, payload):
+        # TODO: implement this
         ...
     async def on_message(self, message):
         """\
@@ -172,8 +172,11 @@ class Bot(discord.Client):
         else:
             user = self.users[user_id]
         # Check if delay expired
-        if user.last_send_time + delay > time.time():
+        time_now = time.time()
+        if user.next_send_time >= time_now:
             return
+        # Set new delay
+        user.next_send_time = time_now + delay
         # Check amount of current exp and exp needed
         exp_amount = randint(lower, upper)
         user.exp += exp_amount
