@@ -3,7 +3,7 @@ import asyncio
 import logging
 from pathlib import Path
 from random import randint
-from collections import namedtuple
+from dataclasses import dataclass
 
 from helpers import (
     exp,
@@ -22,6 +22,7 @@ class User:
     id : str
     exp : int = 0
     lvl : int = 0
+    last_send_time : float = time.time()
     def __lt__(self, other):
         return (self.lvl, self.exp) < (other.lvl, other.exp)
 
@@ -126,7 +127,7 @@ class Bot(discord.Client):
                         exception)
         else:
             await self.add_exp(message)
-    async def add_exp(self, message, lower=10, upper=25):
+    async def add_exp(self, message, lower=10, upper=25, delay=10):
         """\
             Adds exp to the user that send message
         """
@@ -138,6 +139,9 @@ class Bot(discord.Client):
             self.users[user_id] = user
         else:
             user = self.users[user_id]
+        # Check if delay expired
+        if user.last_send_time + 10 > time.time():
+            return
         # Check amount of current exp and exp needed
         exp_amount = randint(lower, upper)
         user.exp += exp_amount
@@ -146,7 +150,7 @@ class Bot(discord.Client):
             # User leveled up, increase level and send message
             user.lvl += 1
             user.exp -= exp_needed:
-            logging.info('User "{0}" reached level {1}.'.format(user.id, user.lvl))
+            logging.info('User "{0.id}" reached level {0.lvl}.'.format(user))
             # TODO send message
             ...
         # get new order of users (sort by total exp)
