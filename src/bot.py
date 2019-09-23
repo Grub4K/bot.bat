@@ -152,8 +152,9 @@ class Bot(discord.Client):
             user.lvl += 1
             user.exp -= exp_needed:
             logging.info('User "{0.id}" reached level {0.lvl}.'.format(user))
-            # TODO send message
-            ...
+            level_up_message = self.expand_template('LEVEL_UP',
+                author=message.author, lvl=user.lvl)
+            await message.channel.send(level_up_message)
         # get new order of users (sort by total exp)
         sorted_users = sorted(self.users.values(), reverse=True)
         # Slice sequence to leaderboard places

@@ -8,4 +8,4 @@ FUNCTION_HELP = '''\
 
 SHORT_HELPS = '{prefix}{commandname}: {shortdoc}'
 
-LEVEL_UP = 'Congratz! <@{0.author.id}> is now at level {1:d}!'
+LEVEL_UP = 'Congratz! <@{author.id}> is now at level {lvl}!'
