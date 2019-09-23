@@ -19,6 +19,9 @@ SETTINGS_FILE = Path('settings.json')
 # TODO: implement next_send
 @dataclass
 class User:
+    """\
+        Class that symbolizes a discord user
+    """
     id : str
     exp : int = 0
     lvl : int = 0
@@ -28,6 +31,9 @@ class User:
 
 @dataclass
 class Settings:
+    """\
+        Settings class that symbolizes settings for the bot
+    """
     token : str
     leaderboard_id : str
     exp_bar_size : int = 20
@@ -40,7 +46,13 @@ class Settings:
     ...
 
 class Bot(discord.Client):
+    """\
+        Discord bot with leaderboard support
+    """
     def __init__(self, settings_path, *args, **kwargs):
+        """\
+            Prepare bot, read settings and users file.
+        """
         # Load settings file json
         try:
             with settings_path.open() as s_file:
@@ -77,9 +89,23 @@ class Bot(discord.Client):
         # Enable first time leaderboard update
         self.update_leaderboard = True
     def is_owner(author):
+        """\
+            Check if an autor is the owner.
+        """
         return author.id == self.settings.owner
     def run(self):
+        """\
+            Start the bot.
+        """
+        # TODO: rework call to also start timer
         super().run(self.settings.token)
+    def close(self):
+        """\
+            Safely store settings and users in a file and then end bot.
+        """
+        self.safe_settings()
+        self.save_users()
+        super().close()
     def save_users(self):
         """\
             Saves the current user state to the users file
@@ -101,6 +127,11 @@ class Bot(discord.Client):
     async def on_raw_reaction_add(self, payload):
         ...
     async def on_message(self, message):
+        """\
+            Handle a message that got send into a channel.
+
+            Actual processing gets done in the corresponding functions.
+        """
         # Skip if message from ignored channel
         if message.channel.id in self.ignored_channels:
             return
@@ -168,6 +199,9 @@ class Bot(discord.Client):
     # ATTENTION: This is utter trash that needs to be fixed.
     # TODO: fix this and await it somewhere lol
     async def update_leaderboard(self):
+        """\
+            Async loop that updates the leaderboard.
+        """
         while True:
             # check if should update
             if self.update_leaderboard:
@@ -194,6 +228,9 @@ class Bot(discord.Client):
                 await self.leaderboard_message.edit(content=s)
             await asyncio.sleep(self.settings.edit_delay)
     def generate_help(self):
+        """\
+            Generate short help for all commands available
+        """
         return_str = ''
         short_helps = []
         for name, function in functions.functions:
@@ -211,6 +248,9 @@ class Bot(discord.Client):
             )
         )
     def expand_template(self, template, **kwargs):
+        """\
+            Expand a text template from the templates module
+        """
         templ = getattr(templates, template)
         # TODO fill with useful info
         bot_data = {
@@ -220,6 +260,8 @@ class Bot(discord.Client):
         return templ.format(**bot_data, **kwargs)
 
 if __name__ == '__main__':
+    """\
+        Main entry point
+    """
     bot = Bot(SETTINGS_FILE)
-    # TODO implement custom loop to accept timer function
     bot.run()
