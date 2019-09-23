@@ -209,8 +209,6 @@ class Bot(discord.Client):
             self.should_update_leaderboard = True
             self.leaderboard = new_leaderboard
         self.save_users()
-    # ATTENTION: This is utter trash that needs to be fixed.
-    # TODO: fix this and await it somewhere lol
     async def update_leaderboard(self):
         """\
             Async loop that updates the leaderboard.
