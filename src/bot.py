@@ -79,7 +79,7 @@ class Bot(discord.Client):
     def is_owner(author):
         return author.id == self.settings.owner
     def run(self):
-        self.run(self.settings.token)
+        super().run(self.settings.token)
     def save_users(self):
         """\
             Saves the current user state to the users file
