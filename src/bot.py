@@ -16,7 +16,7 @@ import functions
 
 SETTINGS_FILE = Path('settings.json')
 
-# TODO: implement lastsend
+# TODO: implement next_send
 @dataclass
 class User:
     id : str
@@ -28,6 +28,8 @@ class User:
 
 @dataclass
 class Settings:
+    token : str
+    leaderboard_id : str
     exp_bar_size : int = 20
     prefix : str = '.'
     submissions_file : str = 'submissions.txt'
@@ -37,7 +39,6 @@ class Settings:
     edit_delay : int = 5
     ...
 
-# TODO: Change leaderboard file ot users file
 class Bot(discord.Client):
     def __init__(self, settings_path, *args, **kwargs):
         # Load settings file json
@@ -58,12 +59,12 @@ class Bot(discord.Client):
             raise SystemExit
         # prepare leaderboard
         self.users = {}
-        self.leaderboard_file = Path(self.settings.users_file)
+        self.users_file = Path(self.settings.users_file)
         try:
-            with self.leaderboard_file.open() as lb_file:
+            with self.users_file.open() as lb_file:
                 json_data = json.load(lb_file)
         except IOError:
-            leaderboard_file.touch()
+            self.users_file.touch()
         except json.JSONDecodeError as e:
             logging.exception('Error parsing users json.', e)
             raise SystemExit
@@ -92,7 +93,7 @@ class Bot(discord.Client):
         # Get leaderboard message
         self.leaderboard_message = await self.get_channel(
             self.settings.leaderboard_id).fetch_message(0)
-        logging.info('leaderboard id: {0}'.format(leaderboard_message.id))
+        logging.info('leaderboard id: {0}'.format(self.leaderboard_message.id))
         # Signal ready
         await client.change_presence(status=discord.Status.online,
             activity=discord.Game(self.settings.prefix + "help"))
@@ -140,7 +141,7 @@ class Bot(discord.Client):
         else:
             user = self.users[user_id]
         # Check if delay expired
-        if user.last_send_time + 10 > time.time():
+        if user.last_send_time + delay > time.time():
             return
         # Check amount of current exp and exp needed
         exp_amount = randint(lower, upper)
@@ -164,7 +165,7 @@ class Bot(discord.Client):
             self.leaderboard = new_leaderboard
         self.save_users()
     # ATTENTION: This is utter trash that needs to be fixed.
-    # TODO fix this and await it somewhere lol
+    # TODO: fix this and await it somewhere lol
     async def update_leaderboard(self):
         while True:
             # check if should update
@@ -189,7 +190,7 @@ class Bot(discord.Client):
                     for i in range(len(rank))
                 )
                 s += "```"
-                await leaderboard.edit(content=s)
+                await self.leaderboard_message.edit(content=s)
             await asyncio.sleep(self.settings.edit_delay)
     def generate_help(self):
         return_str = ''
