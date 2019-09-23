@@ -86,7 +86,7 @@ class Bot(discord.Client):
             logging.exception('Unexpected user file structure.', e)
             raise SystemExit
         # Enable first time leaderboard update
-        self.update_leaderboard = True
+        self.should_update_leaderboard = True
     def is_owner(author):
         """\
             Check if an autor is the owner.
@@ -96,15 +96,25 @@ class Bot(discord.Client):
         """\
             Start the bot.
         """
-        # TODO: rework call to also start timer
-        super().run(self.settings.token)
-    def close(self):
+        loop = asyncio.get_event_loop()
+        try:
+            discord_coro = super().start(self.settings.token)
+            lb_coro = self.update_leaderboard()
+            loop.run_until_complete(asyncio.gather(discord_coro, lb_coro))
+        except KeyboardInterrupt:
+            loop.run_until_complete(self.close())
+            # cancel all tasks lingering
+        except Exception as e:
+            logging.exception('Error in main loop, exiting...')
+        finally:
+            loop.close()
+    async def close(self):
         """\
             Safely store settings and users in a file and then end bot.
         """
         self.safe_settings()
         self.save_users()
-        super().close()
+        await super().close()
     def save_users(self):
         """\
             Saves the current user state to the users file
@@ -196,7 +206,7 @@ class Bot(discord.Client):
         # Check if leaderboard changed
         if self.leaderboard != new_leaderboard:
             # Set update leaderboard flag
-            self.update_leaderboard = True
+            self.should_update_leaderboard = True
             self.leaderboard = new_leaderboard
         self.save_users()
     # ATTENTION: This is utter trash that needs to be fixed.
@@ -207,28 +217,23 @@ class Bot(discord.Client):
         """
         while True:
             # check if should update
-            if self.update_leaderboard:
-                self._update_leaderboard = False
+            if self.should_update_leaderboard:
+                self.should_update_leaderboard = False
                 # perform message edit
-                # TODO edit this to new style thing
-                s = '```Leaderboards:\n'
-                s += '\n'.join(
-                    dedent('''\
-                        {rank} {name}
-                        Level: {level}[{current_exp}/{needed_exp}]
-                        {exp_bar}
-                    ''').strip().format(**{
-                        'rank' : i+1,
-                        'name' : client(rank[i]).get_user.display_name,
-                        'level' : lvl[rank[i]],
-                        'current_exp' : exp[rank[i]],
-                        'needed_exp' : exp_next_lvl(lvl[rank[i]]),
-                        'exp_bar' : exp_bar(rank[i])
-                    })
-                    for i in range(len(rank))
+                leaderboard_data = '\n'.join(
+                    self.expand_template(
+                        'LEADERBOARD_DATA'
+                        rank=rank,
+                        name=self.get_user(int(user.id)),
+                        level=user.lvl,
+                        current_exp=user.exp,
+                        needed_exp=exp.exp_next_lvl(user.lvl),
+                        exp_bar=exp.exp_bar(user)
+                    )
+                    for rank, user in enumerate(self.leaderboard, 1)
                 )
-                s += "```"
-                await self.leaderboard_message.edit(content=s)
+                msg = self.expand_template('LEADERBOARD', data=leaderboard_data)
+                await self.leaderboard_message.edit(content=msg)
             await asyncio.sleep(self.settings.edit_delay)
     def generate_help(self):
         """\
@@ -257,8 +262,8 @@ class Bot(discord.Client):
         templ = getattr(templates, template)
         # TODO fill with useful info
         bot_data = {
-            'prefix': self.settings.prefix,
-            'name': self.user.name,
+            'settings': self.settings,
+            'bot': self.user,
         }
         return templ.format(**bot_data, **kwargs)
 
