@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 from random import randint
 from dataclasses import dataclass, field
-from typing import List
+from typing import List, Optional
 
 from helpers import (
     exp,
@@ -36,11 +36,12 @@ class Settings:
         Settings class that symbolizes settings for the bot
     """
     token : str
-    leaderboard_id : str
     exp_bar_size : int = 20
     prefix : str = '.'
+    lb_id : int
+    lb_message_id : Optional[int] = None
     submissions_file : str = 'submissions.txt'
-    settings_file : str = 'leaderboard.json'
+    users_file : str = 'users.json'
     ignored_channels : List[int] = field(default_factory=list)
     react_emoji : str = '\N{THUMBS UP SIGN}'
     edit_delay : int = 5
@@ -77,7 +78,7 @@ class Bot(discord.Client):
             with self.users_file.open() as lb_file:
                 json_data = json.load(lb_file)
         except IOError:
-            self.users_file.touch()
+            json_data = []
         except json.JSONDecodeError as e:
             logging.exception('Error parsing users json.', e)
             raise SystemExit
@@ -130,8 +131,13 @@ class Bot(discord.Client):
             json.dump(users_file, user_list, default=convert_user)
     async def on_ready(self):
         # Get leaderboard message
-        self.leaderboard_message = await self.get_channel(
-            self.settings.leaderboard_id).fetch_message(0)
+        lb_channel = await self.get_channel(self.settings.lb_id)
+        if self.settings.lb_message_id is None:
+            self.leaderboard_message = lb_channel.send('_ _')
+            self.settings.lb_message_id = self.leaderboard_message.id
+        else:
+            self.leaderboard_message = lb_channel.fetch_message(
+                self.settings.lb_message_id)
         logging.info('leaderboard id: {0}'.format(self.leaderboard_message.id))
         # Signal ready
         await client.change_presence(status=discord.Status.online,
