@@ -1,6 +1,7 @@
 import discord
 import asyncio
 import logging
+import json
 from pathlib import Path
 from random import randint
 from dataclasses import dataclass
@@ -87,6 +88,8 @@ class Bot(discord.Client):
             raise SystemExit
         # Enable first time leaderboard update
         self.should_update_leaderboard = True
+        self.functions = functions.functions
+        super().__init__()
     def is_owner(author):
         """\
             Check if an autor is the owner.
@@ -233,37 +236,19 @@ class Bot(discord.Client):
                 msg = self.expand_template('LEADERBOARD', data=leaderboard_data)
                 await self.leaderboard_message.edit(content=msg)
             await asyncio.sleep(self.settings.edit_delay)
-    def generate_help(self):
-        """\
-            Generate short help for all commands available
-        """
-        return_str = ''
-        short_helps = []
-        for name, function in functions.functions:
-            # Get function
-            doc = function.__doc__ or ''
-            shortdoc, *_ = doc.splitlines(False) or ('',)
-            short_help = self.expand_template('SHORT_HELPS',
-                commandname=name,
-                shortdoc=shortdoc
-            )
-            short_helps.append(short_help)
-        return self.expand_template('FUNCTION_HELP',
-            short_help='\n'.join(
-                short_helps
-            )
-        )
     def expand_template(self, template, **kwargs):
         """\
-            Expand a text template from the templates module
+        Expand a text template from the templates module
         """
         templ = getattr(templates, template)
+        return self.format(templ, **kwargs)
+    def format(self, message, **kwargs):
         # TODO fill with useful info
         bot_data = {
-            'settings': self.settings,
-            'bot': self.user,
+        'settings': self.settings,
+        'bot': self.user,
         }
-        return templ.format(**bot_data, **kwargs)
+        return message.format(**bot_data, **kwargs)
 
 if __name__ == '__main__':
     """\
