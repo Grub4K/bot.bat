@@ -4,7 +4,8 @@ import logging
 import json
 from pathlib import Path
 from random import randint
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from typing import List
 
 from helpers import (
     exp,
@@ -40,7 +41,7 @@ class Settings:
     prefix : str = '.'
     submissions_file : str = 'submissions.txt'
     settings_file : str = 'leaderboard.json'
-    ignored_channels : list = []
+    ignored_channels : List[int] = field(default_factory=list)
     react_emoji : str = '\N{THUMBS UP SIGN}'
     edit_delay : int = 5
     ...
