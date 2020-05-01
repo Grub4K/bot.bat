@@ -13,7 +13,7 @@ functions = {}
 for module_name in module_names:
     # do relative import of module
     module = importlib.import_module('.' + module_name, __name__)
-    # Scan all imported names for a subclass of Domino
+    # Scan all imported names for a command function
     for object_name in dir(module):
         obj = getattr(module, object_name)
         if inspect.isfunction(obj):

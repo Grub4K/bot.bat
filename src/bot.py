@@ -178,6 +178,7 @@ class Bot(discord.Client):
             Adds exp to the user that send message
         """
         disp_len = self.settings.display_length
+        user_id = message.author.id
         # Create new user if not already in users dictionary
         if not user_id in self.users:
             logging.info('Adding id "{0}" to users'.format(user_id))
@@ -202,6 +203,7 @@ class Bot(discord.Client):
             logging.info('User "{0.id}" reached level {0.lvl}.'.format(user))
             level_up_message = self.expand_template('LEVEL_UP',
                 author=message.author, lvl=user.lvl)
+            # TODO fix this to send to a specified channel instead
             await message.channel.send(level_up_message)
         # get new order of users (sort by total exp)
         sorted_users = sorted(self.users.values(), reverse=True)

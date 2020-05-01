@@ -121,3 +121,7 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# Ignore every function
+/src/functions/*
+!/src/functions/__init__.py
